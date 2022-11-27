@@ -5,21 +5,120 @@ output:
     keep_md: true
 ---
 
-
 ## Loading and preprocessing the data
+```{r cache=TRUE}
+unzip('activity.zip')
+```
 
-
+reading file
+```{r cache=TRUE}
+data <- read.csv('activity.csv')
+head(data)
+```
+processing dates
+```{r}
+library(lubridate)
+data$date <- ymd(data$date)
+head(data)
+```
 
 ## What is mean total number of steps taken per day?
 
+Total steps by day
+```{r}
+library(tidyverse)
+total_by_day <- data %>%
+  group_by(date) %>%
+  summarize(sum_steps_by_day = sum(steps, na.rm=T))
+total_by_day
+```
+Histogram of steps by day
+```{r}
+total_by_day <- data %>%
+  group_by(date) %>%
+  summarize(sum_steps_by_day = sum(steps, na.rm=T))
+total_by_day
+hist(total_by_day$sum_steps_by_day)
+```
 
+Summary of data including means and medians
+```{r}
+summary(data)
+```
+Mean and median of steps by day ignoring NA values
+```{r}
+library(tidyverse)
+table(data$steps)
+mean_by_day <- data %>%
+  group_by(date) %>%
+  summarize(mean_steps_by_day = mean(steps, na.rm=T), median_steps_by_day= median(steps, na.rm=T))
+mean_by_day
+```
 
 ## What is the average daily activity pattern?
 
+Time series plot of mean by day
+```{r}
+steps_by_interval <- data %>%
+  group_by(interval) %>%
+  summarize(mean_steps_by_interval = mean(steps, na.rm=T), median_steps_by_interval = median(steps, na.rm=T))
 
+with(steps_by_interval, plot(interval, mean_steps_by_interval, type='l'))
+```
+
+5 minute interval that contains the max number of steps
+```{r}
+steps_by_interval[which.max(steps_by_interval$mean_steps_by_interval),]
+```
 
 ## Imputing missing values
 
+Imputing missing with Median with Caret
+```{r}
+library(caret)
+data_imp_model = preProcess(data, "medianImpute")
+idata = predict(data_imp_model, data)
+summary(idata)
+```
 
+Histogram of steps by day
+```{r}
+total_by_day <- idata %>%
+  group_by(date) %>%
+  summarize(sum_steps_by_day = sum(steps, na.rm=T))
+total_by_day
+hist(total_by_day$sum_steps_by_day)
+```
+#Mean and median of the imputed data; mean is lower, median is the same
+```{r}
+summary(idata$steps)
+```
 
 ## Are there differences in activity patterns between weekdays and weekends?
+```{r}
+find_weekend <- function(day_of_week){
+  if(day_of_week == "Saturday"||day_of_week == "Sunday"){
+    paste('Weekend')
+  }
+  else{
+    paste('Weekday')
+  }
+}
+idata <- idata %>% mutate(day_of_week = weekdays(date), isWeekend = ifelse(day_of_week == "Saturday" | day_of_week == "Sunday", "Weekend", "Weekday")) %>% mutate(isWeekend = as.factor(isWeekend))
+summary(idata)
+table(idata$day_of_week)
+table(idata$isWeekend)
+```
+Making plot
+```{r}
+library(ggplot2)
+isteps_by_interval <- idata %>%
+  group_by(interval, isWeekend) %>%
+  summarize(mean_steps_by_interval = mean(steps), median_steps_by_interval = median(steps))
+isteps_by_interval
+
+ggplot(data=isteps_by_interval, aes(x=interval, y=mean_steps_by_interval)) + geom_line() + facet_grid(isWeekend ~ .)
+```
+
+
+
